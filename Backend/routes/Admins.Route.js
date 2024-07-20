@@ -24,18 +24,20 @@ router.post("/register", async (req, res) => {
   try {
     const admin = await AdminModel.findOne({ email });
     if (admin) {
-      return res.send({
+      return res.status(400).send({
         message: "Admin already exists",
       });
     }
     let value = new AdminModel(req.body);
     await value.save();
     const data = await AdminModel.findOne({ email });
-    return res.send({ data, message: "Registered" });
+    return res.status(201).send({ data, message: "Registered" });
   } catch (error) {
-    res.send({ message: "error" });
+    console.error("Registration error:", error); // Log the error for debugging
+    res.status(500).send({ message: "Internal Server Error", error: error.message });
   }
 });
+
 
 router.post("/login", async (req, res) => {
   const { adminID, password } = req.body;
