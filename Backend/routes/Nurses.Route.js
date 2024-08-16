@@ -2,6 +2,7 @@ const express = require("express");
 const { NurseModel } = require("../models/Nurse.model");
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
+const { slackLogger } = require("../middlewares/webhook"); // Adjust path as needed
 
 const router = express.Router();
 
@@ -10,11 +11,11 @@ router.get("/", async (req, res) => {
     const nurses = await NurseModel.find();
     res.status(200).send(nurses);
   } catch (error) {
-    console.log(error);
+    console.error(error);
+    await slackLogger("Error Fetching Nurses", "Failed to fetch nurses data", error, req);
     res.status(400).send({ error: "Something went wrong" });
   }
 });
-
 
 router.post("/register", async (req, res) => {
   const { email } = req.body;
@@ -30,10 +31,11 @@ router.post("/register", async (req, res) => {
     const data = await NurseModel.findOne({ email });
     return res.send({ data, message: "Registered" });
   } catch (error) {
+    console.error(error);
+    await slackLogger("Error Registering Nurse", "Failed to register nurse", error, req);
     res.send({ message: "error" });
   }
 });
-
 
 router.post("/login", async (req, res) => {
   const { nurseID, password } = req.body;
@@ -49,8 +51,9 @@ router.post("/login", async (req, res) => {
       res.send({ message: "Wrong credentials" });
     }
   } catch (error) {
-    console.log({ message: "Error" });
-    console.log(error);
+    console.error(error);
+    await slackLogger("Error Logging in Nurse", "Failed to login nurse", error, req);
+    res.send({ message: "Error" });
   }
 });
 
@@ -65,7 +68,8 @@ router.patch("/:nurseId", async (req, res) => {
     }
     res.status(200).send({ message: `Nurse Updated`, user: nurse });
   } catch (error) {
-    console.log(error);
+    console.error(error);
+    await slackLogger("Error Updating Nurse", "Failed to update nurse", error, req);
     res.status(400).send({ error: "Something went wrong, unable to Update." });
   }
 });
@@ -79,7 +83,8 @@ router.delete("/:nurseId", async (req, res) => {
     }
     res.status(200).send(`Nurse with id ${id} deleted`);
   } catch (error) {
-    console.log(error);
+    console.error(error);
+    await slackLogger("Error Deleting Nurse", "Failed to delete nurse", error, req);
     res.status(400).send({ error: "Something went wrong, unable to Delete." });
   }
 });

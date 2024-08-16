@@ -14,6 +14,7 @@ const patientRouter = require("./routes/Patients.Route");
 const paymentRouter = require("./routes/Payments.route");
 const prescriptionRouter = require("./routes/Prescriptions.Route");
 const reportRouter = require("./routes/Reports.Route");
+const slackLogger = require("./middlewares/webhook").slackLogger;
 
 const app = express();
 
@@ -36,7 +37,16 @@ app.use("/payments", paymentRouter);
 app.use("/prescriptions", prescriptionRouter);
 app.use("/reports", reportRouter);
 
-app.listen(process.env.port, async () => {
+// Error handling middleware for logging errors to Slack
+app.use(slackLogger);
+
+// General error handler middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).send({ message: 'Internal Server Error', error: err.message });
+});
+
+app.listen(process.env.PORT || 3000, async () => {
   try {
     await connection;
     console.log("Connected to DB");
@@ -44,5 +54,5 @@ app.listen(process.env.port, async () => {
     console.log("Unable to connect to DB");
     console.log(error);
   }
-  console.log(`Listening at port ${process.env.port}`);
+  console.log(`Listening at port ${process.env.PORT || 3000}`);
 });

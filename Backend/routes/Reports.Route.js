@@ -1,5 +1,6 @@
 const express = require("express");
 const { ReportModel } = require("../models/Report.model");
+const { slackLogger } = require("../middlewares/webhook"); // Adjust path as needed
 
 const router = express.Router();
 
@@ -9,7 +10,8 @@ router.get("/", async (req, res) => {
     const reports = await ReportModel.find(query);
     res.status(200).send(reports);
   } catch (error) {
-    console.log(error);
+    console.error(error);
+    await slackLogger("Error Fetching Reports", "Failed to fetch reports data", error, req);
     res.status(400).send({ error: "Something went wrong" });
   }
 });
@@ -21,7 +23,9 @@ router.post("/create", async (req, res) => {
     await report.save();
     res.send({ message: "Report successfully created", report });
   } catch (error) {
-    res.send(error);
+    console.error(error);
+    await slackLogger("Error Creating Report", "Failed to create report", error, req);
+    res.status(400).send({ error: "Something went wrong" });
   }
 });
 
@@ -31,11 +35,12 @@ router.patch("/:reportId", async (req, res) => {
   try {
     const report = await ReportModel.findByIdAndUpdate({ _id: id }, payload);
     if (!report) {
-      res.status(404).send({ msg: `Report with id ${id} not found` });
+      return res.status(404).send({ msg: `Report with id ${id} not found` });
     }
     res.status(200).send(`Report with id ${id} updated`);
   } catch (error) {
-    console.log(error);
+    console.error(error);
+    await slackLogger("Error Updating Report", "Failed to update report", error, req);
     res.status(400).send({ error: "Something went wrong, unable to Update." });
   }
 });
@@ -45,11 +50,12 @@ router.delete("/:reportId", async (req, res) => {
   try {
     const report = await ReportModel.findByIdAndDelete({ _id: id });
     if (!report) {
-      res.status(404).send({ msg: `Report with id ${id} not found` });
+      return res.status(404).send({ msg: `Report with id ${id} not found` });
     }
     res.status(200).send(`Report with id ${id} deleted`);
   } catch (error) {
-    console.log(error);
+    console.error(error);
+    await slackLogger("Error Deleting Report", "Failed to delete report", error, req);
     res.status(400).send({ error: "Something went wrong, unable to Delete." });
   }
 });

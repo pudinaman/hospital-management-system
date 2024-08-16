@@ -1,5 +1,6 @@
 const express = require("express");
 const { AppointmentModel } = require("../models/Appointment.model");
+const { slackLogger } = require("../middlewares/webhook"); // Adjust path as needed
 
 const router = express.Router();
 
@@ -9,7 +10,13 @@ router.get("/", async (req, res) => {
     const appointments = await AppointmentModel.find(query);
     res.status(200).send(appointments);
   } catch (error) {
-    console.log(error);
+    console.error(error);
+    await slackLogger(
+      "Error Fetching Appointments",
+      "Failed to fetch appointments",
+      error,
+      req
+    );
     res.status(400).send({ error: "Something went wrong" });
   }
 });
@@ -19,10 +26,17 @@ router.post("/create", async (req, res) => {
   try {
     const appointment = new AppointmentModel(payload);
     await appointment.save();
+    res.send("Appointment successfully booked.");
   } catch (error) {
-    res.send(error);
+    console.error(error);
+    await slackLogger(
+      "Error Creating Appointment",
+      "Failed to create appointment",
+      error,
+      req
+    );
+    res.status(400).send({ error: "Failed to create appointment" });
   }
-  res.send("Appointment successfully booked.");
 });
 
 router.patch("/:appointmentId", async (req, res) => {
@@ -31,15 +45,23 @@ router.patch("/:appointmentId", async (req, res) => {
   try {
     const appointment = await AppointmentModel.findByIdAndUpdate(
       { _id: id },
-      payload
+      payload,
+      { new: true } // Option to return the updated document
     );
     if (!appointment) {
       res.status(404).send({ msg: `Appointment with id ${id} not found` });
+    } else {
+      res.status(200).send(`Appointment with id ${id} updated`);
     }
-    res.status(200).send(`Appointment with id ${id} updated`);
   } catch (error) {
-    console.log(error);
-    res.status(400).send({ error: "Something went wrong, unable to Update." });
+    console.error(error);
+    await slackLogger(
+      "Error Updating Appointment",
+      "Failed to update appointment",
+      error,
+      req
+    );
+    res.status(400).send({ error: "Something went wrong, unable to update." });
   }
 });
 
@@ -49,11 +71,18 @@ router.delete("/:appointmentId", async (req, res) => {
     const appointment = await AppointmentModel.findByIdAndDelete({ _id: id });
     if (!appointment) {
       res.status(404).send({ msg: `Appointment with id ${id} not found` });
+    } else {
+      res.status(200).send(`Appointment with id ${id} deleted`);
     }
-    res.status(200).send(`Appointment with id ${id} deleted`);
   } catch (error) {
-    console.log(error);
-    res.status(400).send({ error: "Something went wrong, unable to Delete." });
+    console.error(error);
+    await slackLogger(
+      "Error Deleting Appointment",
+      "Failed to delete appointment",
+      error,
+      req
+    );
+    res.status(400).send({ error: "Something went wrong, unable to delete." });
   }
 });
 

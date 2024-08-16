@@ -83,6 +83,14 @@ const patientSchema = mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "nurse",
   },
+
+  admissionType: {
+    type: String, // 'admission', 'opd', or 'internalTransfer'
+  },
+  
+  admissionDetails: {
+    type: String,
+  },
 });
 
 const PatientModel = mongoose.model("patient", patientSchema);

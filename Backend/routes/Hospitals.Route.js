@@ -7,6 +7,8 @@ const { DoctorModel } = require("../models/Doctor.model");
 const { NurseModel } = require("../models/Nurse.model");
 const { PatientModel } = require("../models/Patient.model");
 const { ReportModel } = require("../models/Report.model");
+require("dotenv").config();
+const { slackLogger } = require("../middlewares/webhook"); // Adjust path as needed
 
 const router = express.Router();
 
@@ -32,7 +34,13 @@ router.get("/", async (req, res) => {
     };
     res.status(200).send({ data });
   } catch (error) {
-    console.log(error);
+    console.error(error);
+    await slackLogger(
+      "Error Fetching Admin Data",
+      "Failed to fetch admin data",
+      error,
+      req
+    );
     res.status(400).send({ error: "Something went wrong" });
   }
 });

@@ -6,6 +6,7 @@ const nodemailer = require("nodemailer");
 const { NurseModel } = require("../models/Nurse.model");
 const { DoctorModel } = require("../models/Doctor.model");
 const { PatientModel } = require("../models/Patient.model");
+const {slackLogger} = require("../middlewares/webhook");
 
 const router = express.Router();
 
@@ -14,7 +15,8 @@ router.get("/", async (req, res) => {
     const admins = await AdminModel.find();
     res.status(200).send(admins);
   } catch (error) {
-    console.log(error);
+    console.error('Error fetching admins:', error);
+    slackLogger('Error fetching admins', 'Failed to fetch admins', error, req);
     res.status(400).send({ error: "Something went wrong" });
   }
 });
@@ -33,11 +35,11 @@ router.post("/register", async (req, res) => {
     const data = await AdminModel.findOne({ email });
     return res.status(201).send({ data, message: "Registered" });
   } catch (error) {
-    console.error("Registration error:", error); // Log the error for debugging
+    console.error("Registration error:", error);
+    slackLogger('Error registering admin', 'Failed to register admin', error, req);
     res.status(500).send({ message: "Internal Server Error", error: error.message });
   }
 });
-
 
 router.post("/login", async (req, res) => {
   const { adminID, password } = req.body;
@@ -53,8 +55,9 @@ router.post("/login", async (req, res) => {
       res.send({ message: "Wrong credentials" });
     }
   } catch (error) {
-    console.log({ message: "Error" });
-    console.log(error);
+    console.error('Login error:', error);
+    slackLogger('Error logging in admin', 'Failed to log in admin', error, req);
+    res.status(500).send({ message: "Internal Server Error", error: error.message });
   }
 });
 
@@ -68,7 +71,8 @@ router.patch("/:adminId", async (req, res) => {
     }
     res.status(200).send(`Admin with id ${id} updated`);
   } catch (error) {
-    console.log(error);
+    console.error('Error updating admin:', error);
+    slackLogger('Error updating admin', `Failed to update admin with ID ${id}`, error, req);
     res.status(400).send({ error: "Something went wrong, unable to Update." });
   }
 });
@@ -82,7 +86,8 @@ router.delete("/:adminId", async (req, res) => {
     }
     res.status(200).send(`Admin with id ${id} deleted`);
   } catch (error) {
-    console.log(error);
+    console.error('Error deleting admin:', error);
+    slackLogger('Error deleting admin', `Failed to delete admin with ID ${id}`, error, req);
     res.status(400).send({ error: "Something went wrong, unable to Delete." });
   }
 });
@@ -93,13 +98,13 @@ router.post("/password", (req, res) => {
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
-      user: "agrawaljoy1@gmail.com",
-      pass: "zxkyjqfuhiizmxrg",
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
     },
   });
 
   const mailOptions = {
-    from: "agrawaljoy1@gmail.com",
+    from: process.env.EMAIL_USER,
     to: email,
     subject: "Account ID and Password",
     text: `This is your User Id : ${userId} and  Password : ${password} .`,
@@ -107,9 +112,11 @@ router.post("/password", (req, res) => {
 
   transporter.sendMail(mailOptions, (error, info) => {
     if (error) {
-      return res.send(error);
+      console.error('Error sending password email:', error);
+      slackLogger('Error sending password email', 'Failed to send password email', error, req);
+      return res.status(500).send({ error: "Internal Server Error", details: error.message });
     }
-    return res.send("Password reset email sent");
+    res.send("Password reset email sent");
   });
 });
 
@@ -119,54 +126,60 @@ router.post("/forgot", async (req, res) => {
   let userId;
   let password;
 
-  if (type == "nurse") {
-    user = await NurseModel.find({ email });
-    userId = user[0]?.nurseID;
-    password = user[0]?.password;
-  }
-  if (type == "patient") {
-    user = await PatientModel.find({ email });
-    userId = user[0]?.nurseID;
-    password = user[0]?.password;
-  }
-
-  if (type == "admin") {
-    user = await AdminModel.find({ email });
-    userId = user[0]?.adminID;
-    password = user[0]?.password;
-  }
-
-  if (type == "doctor") {
-    user = await DoctorModel.find({ email });
-    userId = user[0]?.docID;
-    password = user[0]?.password;
-  }
-
-  if (!user) {
-    return res.send({ message: "User not found" });
-  }
-
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: "agrawaljoy1@gmail.com",
-      pass: "zxkyjqfuhiizmxrg",
-    },
-  });
-
-  const mailOptions = {
-    from: "agrawaljoy1@gmail.com",
-    to: email,
-    subject: "Account ID and Password",
-    text: `This is your User Id : ${userId} and  Password : ${password} .`,
-  };
-
-  transporter.sendMail(mailOptions, (error, info) => {
-    if (error) {
-      return res.send(error);
+  try {
+    if (type == "nurse") {
+      user = await NurseModel.findOne({ email });
+      userId = user?.nurseID;
+      password = user?.password;
     }
-    return res.send("Password reset email sent");
-  });
+    if (type == "patient") {
+      user = await PatientModel.findOne({ email });
+      userId = user?.patientID;
+      password = user?.password;
+    }
+    if (type == "admin") {
+      user = await AdminModel.findOne({ email });
+      userId = user?.adminID;
+      password = user?.password;
+    }
+    if (type == "doctor") {
+      user = await DoctorModel.findOne({ email });
+      userId = user?.docID;
+      password = user?.password;
+    }
+
+    if (!user) {
+      return res.status(404).send({ message: "User not found" });
+    }
+
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Account ID and Password",
+      text: `This is your User Id : ${userId} and  Password : ${password} .`,
+    };
+
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.error('Error sending password email:', error);
+        slackLogger('Error sending password email', 'Failed to send password email', error, req);
+        return res.status(500).send({ error: "Internal Server Error", details: error.message });
+      }
+      res.send("Password reset email sent");
+    });
+  } catch (error) {
+    console.error('Error processing forgot password:', error);
+    slackLogger('Error processing forgot password', 'Failed to process forgot password', error, req);
+    res.status(500).send({ error: "Internal Server Error", details: error.message });
+  }
 });
 
 module.exports = router;
