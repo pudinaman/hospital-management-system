@@ -260,7 +260,7 @@ export const forgetPassword = (data) => async (dispatch) => {
   try {
     dispatch({ type: types.FORGET_PASSWORD_REQUEST });
     const res = await axios.post(
-      `http://localhost:4000/admin/forgot`,
+      `https://hospital-management-system-backend-4tsn.onrender.com/admin/forgot`,
       data
     );
     // console.log(res);
